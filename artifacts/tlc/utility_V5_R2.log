@@ -1,0 +1,44 @@
+# command: java -Duser.language=en -Duser.country=US -Djava.io.tmpdir=C:\Users\Lenovo\AppData\Local\Temp\veriswarm_tlc_69txihis\utility_V5_R2.tmp -XX:+UseParallelGC -Xmx3g -cp C:\Users\Lenovo\Downloads\swarm-hackathon\tools\tla2tools.jar tlc2.TLC -workers 1 -fp 0 -seed 0 -metadir C:\Users\Lenovo\AppData\Local\Temp\veriswarm_tlc_69txihis\utility_V5_R2 -config C:\Users\Lenovo\Downloads\swarm-hackathon\specs\configs\utility_V5_R2.cfg Workspace.tla
+# exit_code: 12
+# timed_out: False
+# runtime_seconds: 8.951
+# --- stdout ---
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 0 and seed 0 with 1 worker on 8 cores with 2731MB heap and 64MB offheap memory [pid: 6876] (Windows 11 10.0 amd64, Eclipse Adoptium 25.0.4.1 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file C:\Users\Lenovo\Downloads\swarm-hackathon\specs\Workspace.tla
+Parsing file C:\Users\Lenovo\Downloads\swarm-hackathon\specs\Semantics.tla
+Parsing file C:\Users\Lenovo\AppData\Local\Temp\veriswarm_tlc_69txihis\utility_V5_R2.tmp\Naturals.tla
+Parsing file C:\Users\Lenovo\AppData\Local\Temp\veriswarm_tlc_69txihis\utility_V5_R2.tmp\Sequences.tla
+Parsing file C:\Users\Lenovo\AppData\Local\Temp\veriswarm_tlc_69txihis\utility_V5_R2.tmp\FiniteSets.tla
+Parsing file C:\Users\Lenovo\AppData\Local\Temp\veriswarm_tlc_69txihis\utility_V5_R2.tmp\TLC.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Semantics
+Semantic processing of module Workspace
+Starting... (2026-11-07 02:11:35)
+Computing initial states...
+Computed 2 initial states...
+Finished computing initial states: 4 distinct states generated at 2026-11-07 02:11:38.
+Error: Invariant NoBlockedReceiver is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ s = [locks |-> [L_A |-> "none", L_B |-> "none"], obs |-> <<>>, audit |-> <<>>, jobs |-> [A |-> 0, B |-> 0], requests |-> [A |-> 0, B |-> 0], aseq |-> 0, lastAct |-> [A |-> "none", B |-> "none"], lastResp |-> [A |-> "none", B |-> "none"], round |-> 1, clock |-> 0, pc |-> 1, secret |-> <<0, 0>>, lastObs |-> [who |-> "none", job |-> 0, slot |-> 0, act |-> "none", resp |-> "none", seq |-> 0, round |-> 0, clock |-> 0]]
+/\ sched = <<"A", "B", "M">>
+
+State 2: <SenderSlot line 23, col 5 to line 26, col 22 of module Workspace>
+/\ s = [locks |-> [L_A |-> "A", L_B |-> "none"], obs |-> <<>>, audit |-> <<>>, jobs |-> [A |-> 0, B |-> 0], requests |-> [A |-> 0, B |-> 0], aseq |-> 0, lastAct |-> [A |-> "acquire", B |-> "none"], lastResp |-> [A |-> "ok", B |-> "none"], round |-> 1, clock |-> 1, pc |-> 2, secret |-> <<0, 0>>, lastObs |-> [who |-> "none", job |-> 0, slot |-> 0, act |-> "none", resp |-> "none", seq |-> 0, round |-> 0, clock |-> 0]]
+/\ sched = <<"A", "B", "M">>
+
+State 3: <ReceiverSlot line 29, col 5 to line 34, col 22 of module Workspace>
+/\ s = [locks |-> [L_A |-> "A", L_B |-> "none"], obs |-> <<[who |-> "B", job |-> 0, slot |-> 2, act |-> "try_job", resp |-> "busy", seq |-> 0, round |-> 1, clock |-> 2]>>, audit |-> <<>>, jobs |-> [A |-> 0, B |-> 0], requests |-> [A |-> 0, B |-> 1], aseq |-> 0, lastAct |-> [A |-> "acquire", B |-> "try_job"], lastResp |-> [A |-> "ok", B |-> "busy"], round |-> 1, clock |-> 2, pc |-> 3, secret |-> <<0, 0>>, lastObs |-> [who |-> "B", job |-> 0, slot |-> 2, act |-> "try_job", resp |-> "busy", seq |-> 0, round |-> 1, clock |-> 2]]
+/\ sched = <<"A", "B", "M">>
+
+29 states generated, 29 distinct states found, 23 states left on queue.
+The depth of the complete state graph search is 3.
+The average outdegree of the complete state graph is 6 (minimum is 6, the maximum 6 and the 95th percentile is 6).
+Finished in 05s at (2026-11-07 02:11:38)
+
+# --- stderr ---
+

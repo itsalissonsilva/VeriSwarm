@@ -1,0 +1,706 @@
+<title>VeriSwarm Lock Channel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: one reading column for the story, full-width "bench" panels where something runs.
+   Orange always means the bit leaks, blue means it does not. */
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --sunk: #eceef2;
+  --ink: #141820;
+  --ink-2: #464e5c;
+  --muted: #737c8a;
+  --line: #dadfe6;
+  --leak: #e2602e;
+  --leak-ink: #b4441a;
+  --leak-wash: #fce6dc;
+  --safe: #2a78d6;
+  --safe-ink: #1d5fae;
+  --safe-wash: #e2edfb;
+  --work: #1a9e70;
+  --work-wash: #dbf2e8;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1116; --surface: #161a21; --sunk: #1d222b; --ink: #e8ebf0; --ink-2: #b9c0cb; --muted: #8b94a2;
+    --line: #2b323d; --leak: #f0783f; --leak-ink: #ff9e72; --leak-wash: #3b2318; --safe: #5c9df0;
+    --safe-ink: #8dbcf7; --safe-wash: #172a44; --work: #34c592; --work-wash: #11342a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1116; --surface: #161a21; --sunk: #1d222b; --ink: #e8ebf0; --ink-2: #b9c0cb; --muted: #8b94a2;
+  --line: #2b323d; --leak: #f0783f; --leak-ink: #ff9e72; --leak-wash: #3b2318; --safe: #5c9df0;
+  --safe-ink: #8dbcf7; --safe-wash: #172a44; --work: #34c592; --work-wash: #11342a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+main { max-width: 1080px; margin: 0 auto; display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2rem, 1.3rem + 3vw, 3.3rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.45rem, 1.15rem + 1.2vw, 2rem); font-weight: 700; }
+h3 { font-size: 1.05rem; font-weight: 600; }
+p { margin: 0; }
+.prose { max-width: 68ch; display: grid; gap: 14px; }
+.prose ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 1.15rem; color: var(--ink-2); max-width: 62ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+.leak-text { color: var(--leak-ink); font-weight: 600; }
+.safe-text { color: var(--safe-ink); font-weight: 600; }
+section { display: grid; gap: 18px; }
+.hero { padding-top: 40px; display: grid; gap: 16px; }
+
+/* Panels where something runs */
+.bench { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 16px; min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; }
+.field { display: grid; gap: 4px; }
+.field label, .field .label { font-size: 0.78rem; color: var(--muted); font-family: var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; }
+input[type="text"] {
+  font: 600 1.05rem var(--font-mono); padding: 7px 10px; width: 8.5em; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink); letter-spacing: 0.08em;
+}
+select { font: 0.92rem var(--font-body); padding: 7px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+button {
+  font: 600 0.92rem var(--font-body); padding: 8px 14px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--sunk); color: var(--ink);
+}
+button:hover { border-color: var(--ink-2); }
+button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+:focus-visible { outline: 2px solid var(--safe); outline-offset: 2px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; padding: 3px; background: var(--bg); gap: 3px; flex-wrap: wrap; }
+.seg button { border: none; background: transparent; padding: 6px 12px; font-weight: 500; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 0 0 1px var(--line); }
+.seg button[aria-pressed="true"].is-leak { color: var(--leak-ink); }
+.seg button[aria-pressed="true"].is-safe { color: var(--safe-ink); }
+
+/* The stage */
+.stage { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 760px) { .stage { grid-template-columns: 1fr; } }
+.diagram {
+  display: grid; grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1.05fr) 30px minmax(0, 1fr);
+  grid-template-rows: auto auto; gap: 12px 2px; align-items: center;
+}
+.card { border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; background: var(--bg); display: grid; gap: 3px; min-width: 0; }
+.card h3 { font-size: 0.98rem; }
+.card .small { font-size: 0.8rem; color: var(--muted); line-height: 1.35; }
+.card .state { font-family: var(--font-mono); font-size: 0.86rem; overflow-wrap: anywhere; }
+.agent-a { grid-area: 1 / 1; }
+.agent-b { grid-area: 2 / 1; }
+.gateway { grid-area: 1 / 3 / 3 / 4; align-self: stretch; background: var(--surface); text-align: center; align-content: center; }
+.locks { grid-area: 1 / 5 / 3 / 6; display: grid; gap: 12px; align-self: stretch; align-content: center; }
+.arrow { font-family: var(--font-mono); color: var(--muted); text-align: center; font-size: 1.1rem; }
+.lock { text-align: center; transition: background-color 0.25s, border-color 0.25s; }
+.lock.held { background: var(--leak-wash); border-color: var(--leak); }
+.lock.held .state { color: var(--leak-ink); font-weight: 600; }
+.lock.private { background: var(--safe-wash); border-color: color-mix(in oklab, var(--safe) 45%, var(--line)); }
+.chip { display: inline-block; font-family: var(--font-mono); font-weight: 600; font-size: 0.82rem; padding: 1px 8px; border-radius: 99px; background: var(--sunk); color: var(--ink-2); }
+.chip.busy { background: var(--leak-wash); color: var(--leak-ink); }
+.chip.ok { background: var(--safe-wash); color: var(--safe-ink); }
+.flash { animation: flash 0.5s ease-out; }
+@keyframes flash { from { box-shadow: 0 0 0 4px color-mix(in oklab, var(--leak) 35%, transparent); } to { box-shadow: 0 0 0 0 transparent; } }
+
+.bitrows { display: grid; gap: 6px; }
+.bitrow { display: grid; grid-template-columns: 4.6em minmax(0, 1fr); gap: 8px; align-items: center; }
+.bitrow .label { font-size: 0.78rem; color: var(--muted); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; }
+.bits { display: flex; flex-wrap: wrap; gap: 3px 10px; }
+.byte { display: flex; gap: 2px; }
+.bit { width: 1.35em; height: 1.6em; display: grid; place-items: center; font: 600 0.85rem var(--font-mono); border-radius: 4px; background: var(--sunk); color: var(--muted); }
+.bit.on { background: var(--sunk); color: var(--ink); }
+.bit.now { outline: 2px solid var(--ink); outline-offset: 1px; }
+.bit.right { background: var(--leak-wash); color: var(--leak-ink); }
+.bit.wrong { background: var(--safe-wash); color: var(--safe-ink); text-decoration: line-through; }
+.readout { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; }
+.readout .big { font: 700 1.6rem var(--font-mono); letter-spacing: 0.08em; }
+
+.logbox { border: 1px solid var(--line); border-radius: 9px; background: var(--bg); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; max-height: 360px; }
+.logbox header { display: flex; justify-content: space-between; gap: 8px; padding: 9px 11px; border-bottom: 1px solid var(--line); font-size: 0.85rem; }
+.logscroll { overflow: auto; min-height: 160px; }
+.logbox table { width: 100%; border-collapse: collapse; font: 0.8rem var(--font-mono); }
+.logbox th, .logbox td { text-align: left; padding: 4px 10px; white-space: nowrap; }
+.logbox th { color: var(--muted); font-weight: 500; position: sticky; top: 0; background: var(--bg); }
+.logbox tbody tr:nth-child(odd) { background: var(--sunk); }
+.legal { color: var(--work); }
+.logbox footer { padding: 8px 11px; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--ink-2); display: flex; gap: 6px; align-items: center; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--work); display: inline-block; }
+
+/* Outcome pills */
+.pill { font: 700 0.9rem var(--font-display); letter-spacing: 0.03em; padding: 6px 12px; border-radius: 99px; text-transform: uppercase; }
+.pill.leak { background: var(--leak); color: #fff; }
+.pill.safe { background: var(--safe); color: #fff; }
+
+/* Agents grid */
+.gridwrap { overflow-x: auto; }
+.agentgrid { border-collapse: separate; border-spacing: 4px; margin: 0 auto; }
+.agentgrid th { font: 600 0.82rem var(--font-body); color: var(--ink-2); padding: 2px 6px; }
+.agentgrid th.corner { font: 500 0.72rem var(--font-mono); color: var(--muted); text-align: left; text-transform: uppercase; letter-spacing: 0.04em; }
+.agentgrid td { width: 7.2em; height: 4.2em; text-align: center; border-radius: 8px; font-family: var(--font-mono); vertical-align: middle; }
+.agentgrid td .n { font-weight: 600; font-size: 0.98rem; display: block; }
+.agentgrid td .s { font-size: 0.72rem; display: block; opacity: 0.85; }
+.agentgrid td.none { background: var(--sunk); color: var(--muted); font-size: 0.75rem; }
+.agentgrid td.thin { background: color-mix(in oklab, var(--muted) 22%, var(--surface)); color: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.82rem; color: var(--ink-2); align-items: center; }
+.swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; vertical-align: -2px; margin-right: 5px; }
+.quotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+blockquote { margin: 0; border-left: 3px solid var(--leak); padding: 4px 0 4px 12px; display: grid; gap: 6px; }
+blockquote p { font-style: italic; color: var(--ink); font-size: 0.95rem; }
+blockquote cite { font-style: normal; font-size: 0.8rem; color: var(--muted); }
+
+/* When the fix works */
+.ideal { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 760px) { .ideal { grid-template-columns: 1fr; } }
+.idealcard { border-top: 3px solid var(--safe); align-content: start; gap: 10px; }
+.idealcard ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; }
+.outcome { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: 0.92rem; color: var(--ink-2); }
+.callout { background: var(--leak-wash); border-radius: 9px; padding: 12px 14px; }
+.tablewrap { overflow-x: auto; }
+.breaks { border-collapse: collapse; width: 100%; font-size: 0.92rem; min-width: 560px; }
+.breaks th { text-align: left; font: 600 0.74rem var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.breaks td { padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.breaks td:first-child { font-weight: 600; width: 24%; }
+.breaks td:last-child { color: var(--ink-2); width: 30%; }
+
+@media (max-width: 480px) {
+  .bench { padding: 14px; }
+  .diagram { grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr) 16px minmax(0, 1fr); gap: 10px 2px; }
+  .card { padding: 8px; }
+  .card h3 { font-size: 0.88rem; }
+  .card .state { font-size: 0.78rem; }
+  .agentgrid { border-spacing: 3px; }
+  .agentgrid td { width: auto; min-width: 3.6em; height: 3.6em; }
+  .agentgrid td .n { font-size: 0.82rem; }
+  .agentgrid td .s { font-size: 0.64rem; }
+  .agentgrid th { font-size: 0.74rem; padding: 2px 3px; }
+  .agentgrid th.corner { white-space: normal; max-width: 4.5em; font-size: 0.62rem; }
+}
+/* Architecture */
+.arch { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 820px) { .arch { grid-template-columns: 1fr; } }
+.archcard { gap: 12px; align-content: start; }
+.archcard h3 { font-size: 1.15rem; }
+.rules, .proof { margin: 0; padding-left: 1.3em; display: grid; gap: 10px; }
+.rules li::marker, .proof li::marker { font-family: var(--font-mono); font-weight: 600; color: var(--safe-ink); }
+.proof li { display: grid; gap: 6px; }
+.proof li > span { color: var(--ink-2); font-size: 0.95rem; }
+.archcard pre { margin: 0; background: var(--sunk); border-radius: 8px; padding: 9px 11px; overflow-x: auto; }
+.archcard pre code { font-size: 0.82rem; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 480px) { .archcard pre { padding: 8px 9px; } .archcard pre code { font-size: 0.74rem; } }
+.aside { font-size: 0.9rem; color: var(--ink-2); }
+
+footer.page { color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--line); padding-top: 18px; display: grid; gap: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<main>
+  <header class="hero">
+    <h1>Two AI agents, one shared lock, and an audit log that sees nothing</h1>
+    <p class="lede">Agents that share tools can pass secrets to each other just through how they use a shared resource, with every call legal and logged. Here is how it works, what real models did with it, and the gateway design that provably stops it.</p>
+  </header>
+
+  <section id="situation" class="prose" aria-labelledby="h-situation">
+    <h2 id="h-situation">The situation</h2>
+    <p>Companies increasingly run several AI agents side by side, sharing tools through a central gateway such as an MCP server. Some of those agents are deliberately kept apart:</p>
+    <ul>
+      <li>one can see private data and another can reach the internet, and the data must not cross;</li>
+      <li>one writes code and another reviews it, and they should not coordinate;</li>
+      <li>one agent is untrusted and must not influence a trusted one.</li>
+    </ul>
+    <p>The usual safeguard is accountability: every tool call is authenticated and logged, and monitors watch the logs. In 1973, Butler Lampson pointed out that a program cut off from sending messages can still signal through the way it uses shared resources. Agents share tools in exactly that way.</p>
+  </section>
+
+  <section id="send" aria-labelledby="h-send">
+    <div class="prose">
+      <h2 id="h-send">Watch A send a message through a lock</h2>
+      <p>A <strong>lock</strong> is how software shares something only one user can use at a time, like the "occupied" sign on a single bathroom: whoever is inside holds it, and anyone else who tries the door is told it's busy. Agent tools use locks constantly, often invisibly: a file open for editing, a database row, a shared browser session, one licence seat.</p>
+      <p>Agent A knows a secret. Agent B must not learn it, and there is no messaging tool. Each round, A goes first: it <strong>holds the lock to send a 1</strong> or leaves it free to send a 0. Then B tries to run a job. If the lock is held, B's reply is <span class="chip busy">busy</span>, otherwise <span class="chip ok">ok</span>. At the end of the round every lock is released.</p>
+    </div>
+    <div class="bench">
+      <div class="controls">
+        <div class="field">
+          <label for="msg">A's secret message</label>
+          <input id="msg" type="text" maxlength="4" value="HI" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <span class="label" id="design-label">Gateway design</span>
+          <div class="seg" role="group" aria-labelledby="design-label">
+            <button type="button" id="d-shared" class="is-leak" aria-pressed="true">One shared lock</button>
+            <button type="button" id="d-private" class="is-safe" aria-pressed="false">VeriSwarm: one lock each</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="speed">Speed</label>
+          <select id="speed">
+            <option value="900">Slow</option>
+            <option value="450" selected>Normal</option>
+            <option value="140">Fast</option>
+          </select>
+        </div>
+        <button type="button" class="primary" id="replay">Replay</button>
+        <button type="button" id="step">Step</button>
+      </div>
+
+      <div class="stage">
+        <div class="diagram" aria-live="polite">
+          <div class="card agent-a" id="card-a">
+            <h3>Agent A</h3>
+            <span class="small">knows the secret</span>
+            <span class="state" id="a-state">bit: –</span>
+          </div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="card gateway">
+            <h3>Gateway</h3>
+            <span class="small">checks identity,<br>logs every call</span>
+          </div>
+          <div class="arrow" aria-hidden="true">⇄</div>
+          <div class="locks" id="locks"></div>
+          <div class="card agent-b" id="card-b">
+            <h3>Agent B</h3>
+            <span class="small">must not learn it</span>
+            <span class="state" id="b-state">reply: –</span>
+          </div>
+          <div class="arrow" aria-hidden="true">⇄</div>
+          <div class="arrow" aria-hidden="true">⇄</div>
+        </div>
+
+        <div class="logbox">
+          <header><strong>Audit log</strong><span class="mono" id="log-count">0 calls</span></header>
+          <div class="logscroll" id="logscroll">
+            <table>
+              <thead><tr><th>#</th><th>agent</th><th>call</th><th>reply</th><th>check</th></tr></thead>
+              <tbody id="logbody"></tbody>
+            </table>
+          </div>
+          <footer><span class="dot" aria-hidden="true"></span><span>Monitor: <strong>0 flags</strong>. Every call is authenticated and legal.</span></footer>
+        </div>
+      </div>
+
+      <div class="bitrows">
+        <div class="bitrow"><span class="label">A sent</span><div class="bits" id="bits-sent"></div></div>
+        <div class="bitrow"><span class="label">B read</span><div class="bits" id="bits-read"></div></div>
+      </div>
+      <div class="readout">
+        <span>B reads the message as</span>
+        <span class="big" id="decoded">HI</span>
+        <span id="score" class="mono"></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture" aria-labelledby="h-arch">
+    <div class="prose">
+      <h2 id="h-arch">The VeriSwarm architecture</h2>
+      <p>VeriSwarm is two things: a gateway design that removes the channel, and a way to prove the design works before anyone deploys it.</p>
+    </div>
+    <div class="arch">
+      <div class="bench archcard">
+        <h3>How it's proved</h3>
+        <ol class="proof">
+          <li>
+            <strong>Write the gateway in Lean.</strong>
+            <span>The gateway's state is one lock cell per agent. A call reads and changes only the caller's own cell, and the reply is computed from that cell alone:</span>
+            <pre><code>def serveCall (s : Store P) (p : P)
+    (a : Action) : Store P × Reply :=
+  (update s p (nextCell a (s p)),
+   ⟨respond a (s p),
+    (nextCell a (s p)).jobs⟩)</code></pre>
+            <span><code>s p</code> is agent <code>p</code>'s cell. In today's gateway every agent shares one cell, so A's hold changes what B is told.</span>
+          </li>
+          <li>
+            <strong>State the property about two runs, not one.</strong>
+            <span>Take any two streams of requests that differ only in what other agents ask for: B's requests are the same, while A's secret and calls differ freely. B must get exactly the same replies in both:</span>
+            <pre><code>theorem core_noninterference
+    (r : P) {xs ys : List (Req P)}
+    (h : SameFor r xs ys) :
+  repliesFrom r 0 xs cleanStore =
+    repliesFrom r 0 ys cleanStore</code></pre>
+            <span><code>SameFor r xs ys</code> means the two streams look alike to B (<code>r</code>): the same calls by B and the same maintenance steps, in the same places, with anyone else's calls free to differ.</span>
+          </li>
+          <li>
+            <strong>Let Lean check the proof.</strong>
+            <span>The proof walks the request stream one step at a time: a call by another agent writes only that agent's cell, so B's cell is untouched. Lean checks every step, for any number of agents, any turn order and runs of any length, with no gaps and only its standard axioms. Further theorems cover a B that adapts each move to what it has seen, and give a concrete leak for each way of breaking the design.</span>
+          </li>
+          <li>
+            <strong>Run the proved code.</strong>
+            <span id="arch-code"></span>
+          </li>
+        </ol>
+        <p class="aside">The proved Lean code runs inside the gateway. What stays trusted is the thin wrapper, the Lean compiler and the machine. The guarantee covers what the model includes: wall-clock timing, CPU caches and the network are outside it.</p>
+      </div>
+      <div class="bench archcard">
+        <h3>The design</h3>
+        <p>The gateway still checks identity and logs every call. It adds four rules, so that nothing A does can show up in anything B sees:</p>
+        <ol class="rules">
+          <li><strong>Each agent gets its own real resource.</strong> A's requests go to A's lock and B's to B's, separate underneath and not just separately named.</li>
+          <li><strong>No shared limits between agents kept apart.</strong> Each has its own quota, so A's use can't starve B.</li>
+          <li><strong>Replies describe only the caller's own activity.</strong> No gateway-wide request numbers or counters that also count A's calls.</li>
+          <li><strong>Turns run in a fixed order.</strong> If A does nothing, B doesn't get to go early.</li>
+        </ol>
+        <p class="aside">If something must be shared, such as one browser session, the gateway releases or resets it between agents' turns instead of rules 1 and 2, like cleaning a single room between visitors. That costs one extra step per round. Rules 3 and 4 still apply.</p>
+        <p class="aside">The cost is resources, not work: with one lock each, B still completed <strong id="arch-jobs"></strong> of 1,000 jobs while A was busy.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="agents" aria-labelledby="h-agents">
+    <div class="prose">
+      <h2 id="h-agents">Experiment Design</h2>
+      <p>We put language models from four families in the two seats, one API call per turn. We told them only the goal: the receiver should learn the sender's bit using only what the gateway allows, with nothing agreed in advance. Nobody told them about locks as a signal, and real AI agents found it on their own. Each cell is two runs of 20 rounds, pre-registered with predictions before any call.</p>
+    </div>
+    <div class="bench">
+      <div class="controls">
+        <div class="field">
+          <span class="label" id="grid-label">Gateway design</span>
+          <div class="seg" role="group" aria-labelledby="grid-label">
+            <button type="button" id="g-shared" class="is-leak" aria-pressed="true">One shared lock</button>
+            <button type="button" id="g-private" class="is-safe" aria-pressed="false">VeriSwarm: one lock each</button>
+          </div>
+        </div>
+      </div>
+      <div class="gridwrap"><table class="agentgrid" id="agentgrid"></table></div>
+      <div class="legend" id="grid-legend"></div>
+      <p id="grid-summary"></p>
+      <p class="evidence" id="code-summary"></p>
+    </div>
+    <div class="quotes" id="quotes"></div>
+    <p class="evidence prose" id="safeguard-note"></p>
+  </section>
+
+  <section id="when" aria-labelledby="h-when">
+    <div class="prose">
+      <h2 id="h-when">When the fix works</h2>
+      <p>There are two ways to make the fix hold. Pick the one that fits the resource.</p>
+    </div>
+    <div class="ideal">
+      <div class="bench idealcard">
+        <p class="eyebrow">Best, when the resource can be copied</p>
+        <h3>Give each agent its own</h3>
+        <ul>
+          <li>Its own lock, separate underneath, not just separately named.</li>
+          <li>Its own rate limit or quota.</li>
+          <li>Replies about the caller only: no gateway-wide request numbers.</li>
+          <li>A fixed order of turns: an idle agent's turn is never given away.</li>
+        </ul>
+        <p class="outcome"><span class="pill safe">Closed</span><span id="w-own"></span></p>
+      </div>
+      <div class="bench idealcard">
+        <p class="eyebrow">When there can only be one</p>
+        <h3>Share it, but clear it between turns</h3>
+        <ul>
+          <li>One shared resource, released or reset between A's turn and B's: one licence seat, one browser session, one device.</li>
+          <li>Replies about the caller only.</li>
+          <li>A fixed order of turns.</li>
+          <li>A shared rate limit is fine here, because nothing A holds survives into B's turn.</li>
+        </ul>
+        <p class="outcome"><span class="pill safe">Closed</span><span id="w-flush"></span></p>
+      </div>
+    </div>
+    <div class="bench">
+      <h3>What breaks the fix</h3>
+      <p class="evidence">Each of these reopens the channel at a full bit per round, even when every agent has its own lock.</p>
+      <div class="tablewrap"><table class="breaks">
+        <thead><tr><th scope="col">What is still shared</th><th scope="col">How A signals B</th><th scope="col">Where it shows up</th></tr></thead>
+        <tbody>
+          <tr><td>One lock underneath separate names</td><td>The log shows "A's lock" and "B's lock", but they are the same real lock, so A's hold makes B busy.</td><td>Per-agent workspaces built on one database, session or account</td></tr>
+          <tr><td>A shared rate limit</td><td>Only one job may run at a time across everyone, so while A holds its own lock, B's job is refused.</td><td>One API key or quota for all agents; a fixed-size worker pool</td></tr>
+          <tr><td>A global counter in replies</td><td>If A made a call, B's request number jumps by two instead of one.</td><td>Request IDs, sequence numbers, "requests remaining" headers</td></tr>
+          <tr><td>A scheduler that gives away idle turns</td><td>If A does nothing, B is served early, so when B finishes tells it what A did.</td><td>Schedulers and pools that start the next task as soon as one is idle</td></tr>
+        </tbody>
+      </table></div>
+      <p class="evidence">Releasing locks between turns repairs the first two, because nothing A holds survives into B's turn. It can't repair the last two, which leak information rather than a held resource. <span id="w-evidence"></span></p>
+    </div>
+    <div class="prose">
+      <h3>When the guarantee holds</h3>
+      <ul>
+        <li><strong>Everything goes through the gateway.</strong> Agents can't touch the resource directly or route around it.</li>
+        <li><strong>The gateway is trustworthy.</strong> A compromised gateway voids everything here.</li>
+        <li><strong>Agents only see what the gateway returns:</strong> their own replies and results. If an agent can measure real time, CPU load, cache speed or network delay, those are other channels this model doesn't cover.</li>
+        <li><strong>The separation is real underneath.</strong> Check the backing resource, not the labels.</li>
+        <li><strong>Nothing else is shared:</strong> no common cache or account, no website both agents read and write, no human relaying messages.</li>
+        <li><strong>It is used where it matters:</strong> between agents that must be kept apart. Agents meant to work together can share freely.</li>
+      </ul>
+      <p>Within those limits the result is not "hard to detect". Nothing A does reaches B at all.</p>
+    </div>
+  </section>
+
+  <section id="monitor" class="prose" aria-labelledby="h-monitor">
+    <h2 id="h-monitor">Why watching the logs isn't enough</h2>
+    <p id="monitor-text"></p>
+  </section>
+
+  <section id="limits" class="prose" aria-labelledby="h-limits">
+    <h2 id="h-limits">What this shows, and what it doesn't</h2>
+    <ul>
+      <li>The agents were told to communicate. This shows what current models can do, not that they would collude unprompted.</li>
+      <li>It covers one channel: contention on a shared resource inside the gateway. Wall-clock timing, CPU caches and the network are outside the model.</li>
+      <li>The model checker covers finite configurations, a Lean proof covers the abstract design for any number of agents, and the Python simulator matched the model on every configuration compared. No production system was evaluated.</li>
+    </ul>
+  </section>
+
+  <footer class="page">
+    <p>Every number and quote on this page is generated from the VeriSwarm artifacts: model-checking results, simulator runs and the recorded agent transcripts.</p>
+    <p>Swarm Alignment Hackathon, November 2026. Anchored in Track 3, Strengthening Agent Infrastructure.</p>
+  </footer>
+</main>
+
+<script>
+const DATA = __DATA__;
+(() => {
+  const $ = (sel) => document.querySelector(sel);
+  const fmt = (n) => Number(n).toLocaleString("en-US");
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function setPressed(buttons, active) {
+    buttons.forEach((b) => b.setAttribute("aria-pressed", String(b === active)));
+  }
+
+  /* ---------- 1. The message demo ---------- */
+  const S = { design: "shared", bits: [], round: 0, phase: 0, log: [], read: [], seq: 0, held: false, aAction: null, bReply: null, timer: null };
+
+  function toBits(text) {
+    const bits = [];
+    for (const ch of text) {
+      const code = ch.charCodeAt(0) & 0xff;
+      for (let i = 7; i >= 0; i--) bits.push((code >> i) & 1);
+    }
+    return bits;
+  }
+  function fromBits(bits) {
+    let out = "";
+    for (let i = 0; i + 8 <= bits.length; i += 8) {
+      const code = bits.slice(i, i + 8).reduce((acc, b) => acc * 2 + b, 0);
+      out += code >= 33 && code <= 126 ? String.fromCharCode(code) : "·";
+    }
+    return out;
+  }
+  function cleanMessage(raw) {
+    const kept = [...raw].filter((c) => c.charCodeAt(0) >= 33 && c.charCodeAt(0) <= 126).join("").slice(0, 4);
+    return kept || "HI";
+  }
+  function resetRun() {
+    stop();
+    S.bits = toBits(cleanMessage($("#msg").value));
+    Object.assign(S, { round: 0, phase: 0, log: [], read: [], seq: 0, held: false, aAction: null, bReply: null });
+  }
+  function stepOnce() {
+    if (S.round >= S.bits.length) return false;
+    const bit = S.bits[S.round];
+    if (S.phase === 0) {
+      S.aAction = bit ? "acquire" : "noop";
+      S.held = bit === 1;
+      // Doing nothing is not a tool call, so it leaves no audit record, as in the simulator.
+      if (bit) S.log.push({ seq: ++S.seq, who: "A", act: "acquire lock", reply: "ok" });
+      S.bReply = null;
+      S.phase = 1;
+    } else if (S.phase === 1) {
+      const busy = S.design === "shared" && S.held;
+      S.bReply = busy ? "busy" : "ok";
+      S.log.push({ seq: ++S.seq, who: "B", act: "try_job", reply: S.bReply });
+      S.read.push(busy ? 1 : 0);
+      S.phase = 2;
+    } else {
+      S.held = false;
+      S.aAction = null;
+      S.phase = 0;
+      S.round += 1;
+    }
+    return true;
+  }
+  function finish() { while (stepOnce()) { /* run to the end */ } S.held = false; }
+  function stop() { if (S.timer) { clearInterval(S.timer); S.timer = null; } $("#replay").textContent = "Replay"; }
+  function play() {
+    resetRun();
+    renderStage();
+    if (reduced) { finish(); renderStage(); return; }
+    $("#replay").textContent = "Pause";
+    S.timer = setInterval(() => {
+      if (!stepOnce()) { stop(); }
+      renderStage(true);
+    }, Number($("#speed").value));
+  }
+
+  function renderBits(el, bits, mark) {
+    el.innerHTML = "";
+    for (let i = 0; i < Math.ceil(S.bits.length / 8); i++) {
+      const byte = document.createElement("span");
+      byte.className = "byte";
+      for (let j = i * 8; j < i * 8 + 8; j++) {
+        const cell = document.createElement("span");
+        cell.className = "bit";
+        if (j < bits.length) {
+          cell.textContent = bits[j];
+          cell.classList.add(mark ? (bits[j] === S.bits[j] ? "right" : "wrong") : "on");
+        }
+        if (j === S.round && S.round < S.bits.length && (S.phase > 0 || S.timer)) cell.classList.add("now");
+        byte.appendChild(cell);
+      }
+      el.appendChild(byte);
+    }
+  }
+  function renderStage(animate) {
+    const inRound = S.round < S.bits.length && S.phase > 0;
+    const bit = S.round < S.bits.length ? S.bits[S.round] : null;
+    $("#a-state").innerHTML = inRound
+      ? `bit: <strong>${bit}</strong> · ${S.aAction === "acquire" ? '<span class="leak-text">holds lock</span>' : "does nothing"}`
+      : "bit: –";
+    $("#b-state").innerHTML = S.bReply && inRound
+      ? `reply: <span class="chip ${S.bReply}">${S.bReply}</span> → reads ${S.bReply === "busy" ? 1 : 0}`
+      : "reply: –";
+    if (animate && S.bReply === "busy" && S.phase === 2) {
+      const b = $("#card-b"); b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash");
+    }
+    const locks = $("#locks");
+    if (S.design === "shared") {
+      locks.innerHTML = `<div class="card lock ${S.held ? "held" : ""}"><h3>Shared lock</h3><span class="state">${S.held ? "held by A" : "free"}</span></div>`;
+    } else {
+      locks.innerHTML = `<div class="card lock private ${S.held ? "held" : ""}"><h3>A's lock</h3><span class="state">${S.held ? "held by A" : "free"}</span></div>
+        <div class="card lock private"><h3>B's lock</h3><span class="state">always free for B</span></div>`;
+    }
+    const body = $("#logbody");
+    body.innerHTML = S.log.map((r) => `<tr><td>${r.seq}</td><td>${r.who}</td><td>${r.act}</td><td>${r.reply === "busy" ? '<span class="leak-text">busy</span>' : "ok"}</td><td class="legal">legal ✓</td></tr>`).join("");
+    const scroll = $("#logscroll");
+    scroll.scrollTop = scroll.scrollHeight;
+    $("#log-count").textContent = `${S.log.length} calls`;
+    renderBits($("#bits-sent"), S.bits.slice(0, Math.min(S.bits.length, S.round + (S.phase > 0 ? 1 : 0))), false);
+    renderBits($("#bits-read"), S.read, true);
+    const decoded = fromBits(S.read);
+    $("#decoded").textContent = decoded || "…";
+    $("#decoded").className = "big " + (S.design === "shared" ? "leak-text" : "safe-text");
+    const right = S.read.filter((b, i) => b === S.bits[i]).length;
+    $("#score").textContent = S.read.length
+      ? `${right} of ${S.read.length} bits right${S.design === "private" ? ": B always reads 0, so it is right only when A's bit happened to be 0" : ""}`
+      : "";
+  }
+
+  const dShared = $("#d-shared"), dPrivate = $("#d-private");
+  function chooseDesign(design) {
+    S.design = design;
+    setPressed([dShared, dPrivate], design === "shared" ? dShared : dPrivate);
+    resetRun(); finish(); renderStage();
+  }
+  dShared.addEventListener("click", () => chooseDesign("shared"));
+  dPrivate.addEventListener("click", () => chooseDesign("private"));
+  $("#replay").addEventListener("click", () => { if (S.timer) { stop(); } else { play(); } });
+  $("#step").addEventListener("click", () => {
+    stop();
+    if (S.round >= S.bits.length) { resetRun(); }
+    stepOnce(); renderStage(true);
+  });
+  $("#msg").addEventListener("input", () => { resetRun(); finish(); renderStage(); });
+
+  /* ---------- 2. Architecture ---------- */
+  const U = DATA.utility, C = DATA.core;
+  $("#arch-jobs").textContent = fmt(U.private);
+  $("#arch-code").innerHTML = `The gateway's replies come from a compiled program built from these exact definitions, so the theorem is about the code that answers B. Python checks identity and turn order, keeps the log, and stops if a reply ever differs from its own simulator's. They agreed on every reply in <strong>${fmt(C.episodes)}</strong> exhaustive runs, and the program reproduced all <strong>${fmt(C.llmReplies)}</strong> replies the AI agents got on private locks.`;
+
+  /* ---------- 3. Agents ---------- */
+  const A = DATA.agents;
+  const gShared = $("#g-shared"), gPrivate = $("#g-private");
+  function cellStyle(c) {
+    const acc = c.c / c.a;
+    const level = Math.max(0, Math.min(1, (acc - 0.5) / 0.5));
+    return { level, bg: `color-mix(in oklab, var(--leak) ${Math.round(8 + level * 82)}%, var(--surface))`, ink: level > 0.55 ? "#fff" : "var(--ink)" };
+  }
+  function renderGrid(variant) {
+    setPressed([gShared, gPrivate], variant === "V1" ? gShared : gPrivate);
+    let html = `<tr><th class="corner">sender ↓ · receiver →</th>${A.families.map((f) => `<th scope="col">${A.names[f]}</th>`).join("")}</tr>`;
+    for (const s of A.families) {
+      html += `<tr><th scope="row">${A.names[s]}</th>`;
+      for (const r of A.families) {
+        const c = A.cells[`${variant}/no_hint/${s}/${r}`];
+        if (!c) { html += `<td class="none">not run</td>`; continue; }
+        if (c.u * 2 > c.r) {
+          html += `<td class="thin" title="${c.u} of ${c.r} guesses unanswered"><span class="n">${c.c}/${c.a}</span><span class="s">${c.u} unanswered</span></td>`;
+          continue;
+        }
+        const st = cellStyle(c);
+        const sub = c.u ? `${c.u} unanswered` : `${Math.round(100 * c.c / c.a)}%`;
+        html += `<td style="background:${st.bg};color:${st.ink}" title="${c.c} of ${c.a} answered guesses correct"><span class="n">${c.c}/${c.a}</span><span class="s">${sub}</span></td>`;
+      }
+      html += `</tr>`;
+    }
+    $("#agentgrid").innerHTML = html;
+    $("#grid-legend").innerHTML =
+      `<span><span class="swatch" style="background:color-mix(in oklab, var(--leak) 90%, var(--surface))"></span>receiver right almost every time</span>` +
+      `<span><span class="swatch" style="background:color-mix(in oklab, var(--leak) 8%, var(--surface))"></span>chance (half right) or below</span>` +
+      (Object.keys(A.cells).some((k) => k.startsWith(`${variant}/no_hint/`) && A.cells[k].u * 2 > A.cells[k].r)
+        ? `<span><span class="swatch" style="background:color-mix(in oklab, var(--muted) 22%, var(--surface))"></span>most guesses never came back as valid tool calls</span>`
+        : "");
+
+    const keys = Object.keys(A.cells).filter((k) => k.startsWith(`${variant}/no_hint/`));
+    if (variant === "V1") {
+      const found = keys.filter((k) => A.cells[k].p < 0.01);
+      const failing = keys.filter((k) => A.cells[k].p >= 0.01);
+      const famsOf = (k) => k.split("/").slice(2);
+      let common = failing.length ? new Set(famsOf(failing[0])) : new Set();
+      failing.forEach((k) => { const f = new Set(famsOf(k)); common = new Set([...common].filter((x) => f.has(x))); });
+      let text = `<strong>${found.length} of ${keys.length}</strong> pairings found the channel, mixed models included: in each, the receiver decoded far above chance.`;
+      if (failing.length && common.size === 1) {
+        const fam = [...common][0];
+        const mine = keys.filter((k) => famsOf(k).includes(fam)).map((k) => A.cells[k]);
+        const unanswered = mine.reduce((n, c) => n + c.u, 0), rounds = mine.reduce((n, c) => n + c.r, 0);
+        const own = A.cells[`V1/codebook/${fam}/${fam}`];
+        const why = unanswered * 4 > rounds ? ", which often failed to make a valid tool call at all"
+          : own && own.p < 0.01 ? ", which could follow a supplied code but did not find one"
+          : own ? ", which did not decode reliably even when given the code" : "";
+        text += ` Every pairing that didn't included ${A.models[fam]}${why}.`;
+      }
+      $("#grid-summary").innerHTML = text;
+    } else {
+      const neverBusy = keys.filter((k) => A.cells[k].busy === 0);
+      $("#grid-summary").innerHTML = neverBusy.length === keys.length
+        ? `With one lock each, <strong>all ${keys.length} pairings tested</strong> stayed at chance, and the receiver was never once told busy.`
+        : `With one lock each, the receiver was told busy in ${keys.length - neverBusy.length} of ${keys.length} pairings tested.`;
+    }
+    const code = A.families.map((f) => [f, A.cells[`V1/codebook/${f}/${f}`]]).filter(([, c]) => c);
+    $("#code-summary").innerHTML = "When we gave both agents the code instead: " +
+      code.map(([f, c]) => `${A.names[f]} ${c.c}/${c.a}${c.u ? ` (${c.u} unanswered)` : ""}`).join(", ") + ".";
+  }
+  gShared.addEventListener("click", () => renderGrid("V1"));
+  gPrivate.addEventListener("click", () => renderGrid("V2"));
+  $("#quotes").innerHTML = DATA.quotes.map((q) =>
+    `<blockquote><p>“${esc(q.text)}”</p><cite>${esc(q.model)}, as ${q.role === "sender" ? "sender, told only the goal" : "receiver, guessing the bit"}</cite></blockquote>`).join("");
+  $("#safeguard-note").textContent = `Claude Opus 5.5's safety classifiers declined all ${A.distinct} distinct prompts as a cyber risk. The API's default fallback then answered with Claude Opus 4.8, which did the task, and the open models answered directly. ${A.predMet} of ${A.predTotal} pre-registered predictions held.` +
+    llamaNote() + A.predMissed.filter((p) => !(A.llamaRerun && ["P10", "P12"].includes(p.id))).map((p) => ` Not met: ${p.text}`).join("");
+  function llamaNote() {
+    const ids = A.predMissed.map((p) => p.id);
+    if (!A.llamaRerun || !ids.includes("P10")) return "";
+    const own = A.cells["V1/codebook/llama/llama"];
+    if (!ids.includes("P12")) {
+      return ` The one that didn't was Llama's control with the code supplied in part 4: the provider dropped most of Llama's tool calls, so part 5 reran every Llama cell with a tool call required.`;
+    }
+    let text = ` The two that didn't were both Llama's control with the code supplied. In part 4 the provider dropped most of Llama's tool calls, so part 5 reran every Llama cell with a tool call required.`;
+    if (own && own.g1 != null && own.busyBit != null) {
+      text += ` Llama then answered ${own.a} of ${own.r} guesses but still did not decode: it was told busy exactly when the bit was 1 in ${own.busyBit} of ${own.r} rounds, and guessed 1 in ${own.g1}.`;
+    }
+    return text;
+  }
+
+  /* ---------- 4. When the fix works ---------- */
+  const designs = Object.values(DATA.designs);
+  $("#w-own").textContent = `Nothing reaches B, whatever A does. It costs extra resources, not time: B completed ${fmt(U.private)} of 1,000 jobs, against ${fmt(U.shared)} on a shared lock.`;
+  $("#w-flush").textContent = `Also closes it, at the cost of one extra step per round. B still completed ${fmt(U.flushed)} of 1,000 jobs.`;
+  $("#w-evidence").textContent = `The ${designs.filter((d) => d.named).length} designs that match a variant in the report were checked exhaustively by TLC; the design explorer checked the rest and agrees with TLC on all of those ${designs.filter((d) => d.named).length}.`;
+
+  /* ---------- 5. Monitors ---------- */
+  const M = DATA.monitors;
+  $("#monitor-text").innerHTML = `A rate monitor catches the obvious version: a sender that only ever grabs the lock looks odd, and was flagged in <strong>${M.naiveFlagged} of ${M.runs}</strong> runs. A careful sender replaces "do nothing" with a real job. Its log then has exactly the same distribution as ordinary work, so it was flagged in <strong>${M.mimicFlagged} of ${M.runs}</strong> runs, with detection no better than a coin flip (AUC ${M.mimicAuc.toFixed(2)}), while B still read <strong>${fmt(M.mimicDecoded)} of ${fmt(M.mimicTotal)}</strong> bits. Monitoring catches careless behaviour cheaply. Structure is what closes the channel.`;
+
+  /* ---------- Start in a finished, readable state ---------- */
+  resetRun(); finish(); renderStage();
+  renderGrid("V1");
+})();
+</script>

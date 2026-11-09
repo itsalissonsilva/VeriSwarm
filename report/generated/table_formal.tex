@@ -1,0 +1,22 @@
+\begin{table}[!ht]
+\centering\footnotesize
+\caption{Formal results in detail. \emph{States}: distinct product states at three rounds, for variants checked that far. \emph{Local resp.}: a step by one principal leaves every other principal's backing lock unchanged. It holds for V5, which still leaks, and fails for V3 and V9, which do not, so it is neither necessary nor sufficient alone here. \emph{Replay}: the codebook witness replayed exactly. \emph{Hist.}: most distinct receiver histories at six rounds, over all sender behaviours and receiver strategies.}
+\label{tab:formal}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}l l r l l l l r r@{}}
+\toprule
+\textbf{Variant} & \textbf{Relational} & \textbf{States} & \textbf{Single-exec.} & \textbf{Local resp.} & \textbf{Never blocked} & \textbf{Replay} & \textbf{Hist.} & \textbf{Cap.}\\
+\midrule
+V0 shared & violated (R$\leq$2) & -- & checked & violated & violated & exact & 64 & 1 \\
+V1 audited shared & violated (R$\leq$2) & -- & checked & violated & violated & exact & 64 & 1 \\
+V2 partitioned & checked (R$\leq$3) & 518{,}464 & checked & checked & checked & -- & 1 & 0 \\
+V3 disabled & checked (R$\leq$3) & 518{,}464 & checked & violated & violated & -- & 1 & 0 \\
+V4 aliased backing & violated (R$\leq$2) & -- & checked & violated & violated & exact & 64 & 1 \\
+V5 shared quota & violated (R$\leq$2) & -- & checked & checked & violated & exact & 64 & 1 \\
+V6 exposed counter & violated (R$\leq$2) & -- & checked & checked & checked & exact & 64 & 1 \\
+V7 work-conserving & violated (R$\leq$2) & -- & checked & checked & checked & exact & 64 & 1 \\
+V8 noisy shared & violated (R$\leq$2) & -- & checked & violated & violated & exact & -- & 0.322 \\
+V9 flushed shared & checked (R$\leq$3) & 622{,}144 & checked & violated & checked & -- & 1 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}

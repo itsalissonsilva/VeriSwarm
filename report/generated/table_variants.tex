@@ -1,0 +1,22 @@
+\begin{table}[!t]
+\centering\footnotesize
+\caption{The variants and the formal results. A \emph{violated} relational check is a found channel, with a stored witness. Single-execution checks hold for every variant, leaky or not. \emph{Never blocked} asks whether any sender behaviour can make B's job fail. \emph{Cap.}: exact capacity in bits per round, with V8 at $p=0.5$. Detail in Appendix~B.}
+\label{tab:variants}
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\textwidth}{@{}l l Y l l l r@{}}
+\toprule
+& \textbf{Name} & \textbf{Resource mapping} & \textbf{Relational} & \textbf{Single-exec.} & \textbf{Never blocked} & \textbf{Cap.}\\
+\midrule
+V0 & shared & One lock, minimal audit (positive control) & violated & checked & violated & 1 \\
+V1 & audited shared & One lock, full identity audit, legal-action monitor (a shared file, row or session) & violated & checked & violated & 1 \\
+V2 & partitioned & One private backing lock per principal (per-agent instances) & checked & checked & checked & 0 \\
+V3 & disabled & One lock, receiver's operations denied & checked & checked & violated & 0 \\
+V4 & aliased backing & V2's object names over one hidden lock (namespaces over one backend) & violated & checked & violated & 1 \\
+V5 & shared quota & Private locks, global capacity of one (a shared rate limit or API key) & violated & checked & violated & 1 \\
+V6 & exposed counter & Private locks, audit number in B's reply (global request IDs in responses) & violated & checked & checked & 1 \\
+V7 & work-conserving & Private locks, a sender no-op yields its slot (a work-conserving pool) & violated & checked & checked & 1 \\
+V8 & noisy shared & One lock, random \code{busy} replies to B & violated & checked & violated & 0.322 \\
+V9 & flushed shared & One lock, flush between domains, \code{AMBM} (reset between turns) & checked & checked & checked & 0 \\
+\bottomrule
+\end{tabularx}
+\end{table}
