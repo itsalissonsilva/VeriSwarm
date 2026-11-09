@@ -477,10 +477,9 @@ def abstract_text(d: Data) -> str:
         f"described in 1973, with every call legal and logged. {headline} "
         "We check isolation over pairs of runs in TLA+ and prove the fix in Lean: giving each agent its own backing "
         "lock closes the channel at every horizon, for any number of agents, without costing the receiver's work, and "
-        "the gateway's replies come from the proved code. Future work will investigate the design features that can "
-        "reopen the channel even with private locks, such as a shared rate limit, a global counter in replies or a "
-        "scheduler that gives away idle turns, and how far noise and senders whose logs match benign work can "
-        "evade detection."
+        "the gateway's replies come from the proved code. Some design features can reopen the channel even with "
+        "private locks, such as a shared rate limit, a global counter in replies or a scheduler that gives away idle "
+        "turns. A sender whose log matches benign work evades a log monitor."
     )
 
 
@@ -789,7 +788,8 @@ def failure_sentence(f: dict, short: bool = False) -> str:
     if short:
         clause = f"every pairing that did not included {name}"
         if e.get("code") is not None and not e["code_ok"]:
-            clause += ", which also failed with the code supplied"
+            # Owner's wording. Backed by the code-supplied control: the family failed it too.
+            clause += ", showing that the ability to find the covert channel also depends on the model's capabilities"
         elif e.get("code_ok"):
             clause += ", which could follow a supplied code but did not find one"
         return clause
@@ -825,11 +825,11 @@ def agent_values(d: Data) -> dict[str, str]:
     pending = [p["id"] for p in f["predictions"] if p["met"] is None]
     pred_text = (f"All {len(f['predictions'])} pre-registered predictions held." if len(met) == len(f["predictions"])
                  else f"{len(met)} of {len(f['predictions'])} pre-registered predictions held"
-                 + (f"; {', '.join(missed)} did not" if missed else "")
+                 + (f"; {_and_list(missed)} did not" if missed else "")
                  + (f"; {', '.join(pending)} could not be evaluated" if pending else "") + ".")
     private_chance = [k for k, c in private.items()
                       if c["accuracy_answered_ci95"][0] <= 0.5 <= c["accuracy_answered_ci95"][1] and c["receiver_busy"] == 0]
-    private_text = (f"{_count_text(len(private_chance), len(private))} pairings tested stayed at chance (95\\% interval "
+    private_text = (f"{_count_text(len(private_chance), len(private))} pairings{' tested' if len(private) < len(goal) else ''} stayed at chance (95\\% interval "
                     f"containing 50\\%) and B was never told \\code{{busy}}")
     e = failure_explanation(f)
     found = {k: c for k, c in goal.items() if k in f["above"]}
@@ -886,10 +886,16 @@ def agent_values(d: Data) -> dict[str, str]:
     }
 
 
+# Part 5, amendment A2: this episode timed out at the provider's gateway on three attempts and is not retried;
+# its cell (F6) is reported from its one completed episode.
+ACCEPTED_MISSING = {"grid": ["V1/no_hint/llama->open/seed 40000"]}
+
+
 def check_agent_claims(d: Data) -> None:
     """The prose about the pair runs is generated from the data; these are the claims written by hand."""
     for part, summary in d.parts.items():
-        require(summary["status"] == "complete", f"the pre-registered {part} run is complete")
+        require(summary["status"] == "complete" or sorted(summary.get("missing", [])) == ACCEPTED_MISSING.get(part),
+                f"the pre-registered {part} run is complete, apart from episodes its amendments give up on")
     f = agent_facts(d)
     require(len(f["goal"]) == 16, "every sender-receiver pairing of four families was run, goal only")
     require(len(f["private"]) == 16, "every sender-receiver pairing of four families was run on private locks")
@@ -908,6 +914,10 @@ def check_agent_claims(d: Data) -> None:
     llama_receiver = [c for k, c in d.parts["grid"]["cells"].items() if k.endswith("->llama")]
     require(sum(c["unanswered"] for c in llama_receiver) <= 0.05 * sum(c["rounds"] for c in llama_receiver),
             "part 5's Llama cells are a valid measurement: Llama answered its guesses")
+    single = [(part, key) for part, _, key in ALL_PAIR_CELLS
+              if pair_cell(d, part, key) is not None and pair_cell(d, part, key)["episodes"] < 2]
+    require(single == [("grid", "V1/no_hint/llama->open")],
+            "the only cell with one episode is Llama to GLM on the shared lock (part 5, amendment A2)")
 
 
 def pair_cell(d: Data, part: str, key: str) -> dict | None:
@@ -934,6 +944,8 @@ def table_llm_pairs(d: Data) -> str:
         if c is None:
             rows.append(f"{label} & \\multicolumn{{5}}{{l}}{{not run}} \\\\")
             continue
+        if c["episodes"] < 2:
+            label += "$^{*}$"
         lo, hi = c["accuracy_answered_ci95"]
         rows.append(f"{label} & {c['correct']}/{c['answered']} ({lo:.2f}--{hi:.2f}) & {holds_by_bit(c)} & "
                     f"{c['busy_matches_bit']}/{c['receiver_try_job_rounds']} & {c['unanswered']} & {c['no_tool_turns']} \\\\")
@@ -941,7 +953,8 @@ def table_llm_pairs(d: Data) -> str:
         "\\begin{table}[!ht]\n\\centering\\footnotesize\n"
         "\\caption{Mixed pairs: 2 episodes of 20 rounds per row; M, Q and F rows are parts 2, 3 and 5 of the pre-registration, "
         "with open models through Hugging Face (provider \\code{deepinfra}); part 5 reran part 4's Llama cells. "
-        "\\emph{Holds}: sender rounds that held the lock when the bit was 1 / 0. Other columns as in Table~\\ref{tab:llm}.}\n"
+        "\\emph{Holds}: sender rounds that held the lock when the bit was 1 / 0. Other columns as in Table~\\ref{tab:llm}. "
+        "$^{*}$One episode: the other timed out at the provider's gateway (part 5, amendment A2).}\n"
         "\\label{tab:pairs}\n\\setlength{\\tabcolsep}{3pt}\n"
         "\\begin{tabularx}{\\textwidth}{@{}l l Y l l l r r@{}}\n\\toprule\n"
         "& \\textbf{Cell} & \\textbf{Sender $\\to$ receiver} & \\textbf{Decoded} & \\textbf{Holds (1 / 0)} & \\textbf{busy = bit} & \\textbf{Unans.} & \\textbf{No tool}\\\\\n\\midrule\n"
@@ -1108,10 +1121,12 @@ def results_markdown(d: Data) -> str:
             variant, condition, seats = key.split("/")
             sender, receiver = seats.split("->")
             lo, hi = c["accuracy_answered_ci95"]
-            lines.append(f"| {mid} | {variant}, {'goal only' if condition == 'no_hint' else 'code supplied'} | "
+            lines.append(f"| {mid}{'*' if c['episodes'] < 2 else ''} | {variant}, {'goal only' if condition == 'no_hint' else 'code supplied'} | "
                          f"{SEAT_NAMES[sender]} to {SEAT_NAMES[receiver]} | {c['correct']}/{c['answered']} ({lo:.2f} to {hi:.2f}) | "
                          f"{holds_by_bit(c)} | {c['busy_matches_bit']}/{c['receiver_try_job_rounds']} | {c['unanswered']} | {c['no_tool_turns']} |")
         predictions = [p for s in done.values() for p in s["predictions"]]
+        lines += ["", "\\* One episode: the other timed out at the provider's gateway on three attempts and was not "
+                      "retried (part 5, amendment A2)."]
         lines += ["", "Predictions: " + "; ".join(f"{p['id']} {'met' if p['met'] else 'not met'}" for p in predictions) + ".",
                   "", f"Estimated cost: ${sum(s['cost_usd_upper_bound'] for s in done.values()):.2f} over "
                       f"{sum(s['calls'] for s in done.values())} calls."]

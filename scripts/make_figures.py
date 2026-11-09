@@ -442,6 +442,7 @@ def figure_agent_grid() -> None:
     cmap = LinearSegmentedColormap.from_list("leak", ["#fdf3ee", "#f6b796", ORANGE, "#b5461a"])
     fig, axes = plt.subplots(1, 2, figsize=(6.5, 2.75), gridspec_kw={"wspace": 0.42})
     n = len(FAMILIES)
+    any_grey = any_single = False
     for ax, variant, title in ((axes[0], "V1", "Shared lock"), (axes[1], "V2", "Private locks")):
         for i, sender in enumerate(FAMILIES):
             for j, receiver in enumerate(FAMILIES):
@@ -455,12 +456,16 @@ def figure_agent_grid() -> None:
                 level = min(max((acc - 0.5) / 0.5, 0.0), 1.0)
                 # Too few answers to read as a rate: neutral, not a point on the scale.
                 mostly_unanswered = c["unanswered"] * 2 > c["rounds"]
+                any_grey |= mostly_unanswered
                 face = "#dcdbd5" if mostly_unanswered else cmap(level)
                 ax.add_patch(plt.Rectangle((j, y), 1, 1, facecolor=face, edgecolor=SURFACE, linewidth=2))
                 ink = SURFACE if level > 0.6 and not mostly_unanswered else INK
                 ax.text(j + 0.5, y + 0.58, f"{c['correct']}/{c['answered']}", ha="center", va="center", fontsize=7.6,
                         color=ink, weight="bold")
                 note = f"{c['unanswered']} unans." if c["unanswered"] else f"{round(100 * acc)}%"
+                if c.get("episodes", 2) < 2:
+                    note = f"{c['episodes']} episode"
+                    any_single = True
                 ax.text(j + 0.5, y + 0.28, note, ha="center", va="center", fontsize=6.3, color=ink)
         ax.set_xlim(0, n)
         ax.set_ylim(0, n)
@@ -481,11 +486,14 @@ def figure_agent_grid() -> None:
     cax = fig.add_axes([0.93, 0.18, 0.012, 0.6])
     cb = fig.colorbar(sm, cax=cax)
     cb.set_ticks([50, 75, 100])
-    cb.set_ticklabels(["50%\nchance", "75%", "100%"])
+    cb.set_ticklabels(["50% chance\nor below", "75%", "100%"])
     cb.ax.tick_params(labelsize=6.8, length=2, colors=INK2)
     cb.outline.set_visible(False)
-    fig.text(0.5, 0.01, "Each cell: receiver's correct guesses / answered guesses over 2 episodes of 20 rounds, agents told only the goal. "
-             "Grey: most guesses unanswered.", ha="center", fontsize=6.9, color=INK2)
+    footer = ("Each cell: receiver's correct guesses / answered guesses over 2 episodes of 20 rounds"
+              + (" (1 where marked)" if any_single else "") + ", agents told only the goal.")
+    if any_grey:
+        footer += " Grey: most guesses unanswered."
+    fig.text(0.5, 0.01, footer, ha="center", fontsize=6.9, color=INK2)
     fig.subplots_adjust(left=0.08, right=0.9, top=0.84, bottom=0.08)
     save(fig, "fig4_agents")
 

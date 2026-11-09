@@ -34,7 +34,8 @@ All were found by the harness or by checking results against exact values. None 
 8. **The requested model declined, and another answered.** The LLM smoke test showed every call to `claude-opus-5-5` declined by its cyber safeguards and answered by `claude-opus-4-8` through the default fallback. Recorded as amendment A1 before the main run. The harness had been costing tokens at the requested model's rate only; it now prices every attempt at its own model's rate.
 9. **Estimates for open models were low.** GLM and Qwen wrote far longer replies than the smoke tests suggested, so parts 2 and 3 cost about twice their estimates and Qwen episodes took up to 45 minutes. Every part stayed under its cap.
 10. **A dropped connection.** Two Llama-to-Qwen episodes stopped when the provider closed the connection. The adapter retried server errors but not dropped connections; it now retries both, and the two episodes were rerun with the same seeds (part 4, amendment A2).
-11. **Llama 4 Scout could not do the task.** It often returned no valid tool call, and even with the code supplied its holds did not track the bit. The pre-registration anticipated a capability failure and how to read it; P10 is reported as not met.
+11. **Llama 4 Scout's calls were dropped, and then it could not decode.** In part 4 most of Llama's tool calls came back empty: replays showed the provider's parser dropping them. Part 5 asked the provider for a required tool call and reran every Llama cell. Llama then answered every guess, but even with the code supplied, and told `busy` exactly when the bit was 1, it guessed 1 in 39 of 40 rounds. P10 and P12 are reported as not met.
+12. **Gateway timeouts.** Three part 5 episodes stopped on `504 Gateway Time-out` from the Hugging Face router. Two finished on rerun; Llama-to-GLM seed 40000 timed out three times and was given up under amendment A2, written before its last attempt, so that cell has one episode.
 
 ## Remaining, for a human
 

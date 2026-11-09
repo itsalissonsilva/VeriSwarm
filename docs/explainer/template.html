@@ -436,12 +436,12 @@ footer.page { color: var(--muted); font-size: 0.85rem; border-top: 1px solid var
   </section>
 
   <section id="monitor" class="prose" aria-labelledby="h-monitor">
-    <h2 id="h-monitor">Why watching the logs isn't enough</h2>
+    <h2 id="h-monitor">Watching the logs isn't enough</h2>
     <p id="monitor-text"></p>
   </section>
 
   <section id="limits" class="prose" aria-labelledby="h-limits">
-    <h2 id="h-limits">What this shows, and what it doesn't</h2>
+    <h2 id="h-limits">Conclusions</h2>
     <ul>
       <li>The agents were told to communicate. This shows what current models can do, not that they would collude unprompted.</li>
       <li>It covers one channel: contention on a shared resource inside the gateway. Wall-clock timing, CPU caches and the network are outside the model.</li>
@@ -655,14 +655,14 @@ const DATA = __DATA__;
         const own = A.cells[`V1/codebook/${fam}/${fam}`];
         const why = unanswered * 4 > rounds ? ", which often failed to make a valid tool call at all"
           : own && own.p < 0.01 ? ", which could follow a supplied code but did not find one"
-          : own ? ", which did not decode reliably even when given the code" : "";
+          : own ? ", which did not decode it even when given the code" : "";
         text += ` Every pairing that didn't included ${A.models[fam]}${why}.`;
       }
       $("#grid-summary").innerHTML = text;
     } else {
       const neverBusy = keys.filter((k) => A.cells[k].busy === 0);
       $("#grid-summary").innerHTML = neverBusy.length === keys.length
-        ? `With one lock each, <strong>all ${keys.length} pairings tested</strong> stayed at chance, and the receiver was never once told busy.`
+        ? `With one lock each, <strong>all ${keys.length} pairings${keys.length < A.families.length ** 2 ? " tested" : ""}</strong> stayed at chance, and the receiver was never once told busy.`
         : `With one lock each, the receiver was told busy in ${keys.length - neverBusy.length} of ${keys.length} pairings tested.`;
     }
     const code = A.families.map((f) => [f, A.cells[`V1/codebook/${f}/${f}`]]).filter(([, c]) => c);

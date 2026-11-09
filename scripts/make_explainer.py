@@ -137,7 +137,7 @@ def main() -> int:
                    "predMet": sum(1 for p in predictions if p["met"]), "predTotal": len(predictions),
                    "predMissed": [{"id": p["id"], "text": p["prediction"]} for p in predictions if p["met"] is False],
                    # Part 5 reran every Llama cell of part 4 with a tool call required.
-                   "llamaRerun": parts[-1]["status"] == "complete"},
+                   "llamaRerun": parts[-1]["status"] != "not_run"},
         "designs": designs,
         "noise": noise_facts(load("noise")),
         "core": core_facts(load("lean_core")),

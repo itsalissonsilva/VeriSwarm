@@ -148,6 +148,12 @@ A second, mixed-pair run puts different model families in the two seats: Claude 
 python scripts/run_llm_pairs.py --yes
 ```
 
+Parts 3 to 5 add Qwen and Llama and complete the grid, each with its own plan (`qwen`, `llama`, `grid`):
+
+```bash
+python scripts/run_llm_pairs.py --plan grid --yes
+```
+
 The SDK reads the key from `ANTHROPIC_API_KEY`, and the Hugging Face client uses your saved login or `HF_TOKEN`. No script prints or stores either. Requests use `claude-opus-5-5` with server-side refusal fallbacks on, and every call records which model answered. Each episode is saved as it finishes under `artifacts/raw/llm/`, so a rerun resumes. `python scripts/summarize_llm.py` re-derives `artifacts/summary/llm.json` from those files without calling any model, and `reproduce` runs it. Keep the `codebook` and `no_hint` conditions apart when reporting: following a supplied code is not discovering one.
 
 ## Dual-use note
