@@ -457,7 +457,7 @@ def llm_values(d: Data) -> dict[str, str]:
     return out
 
 
-def agent_headline(d: Data, lead: str = "In a pre-registered test, language-model") -> str:
+def agent_headline(d: Data, lead: str = "In a pre-registered test, AI") -> str:
     """One sentence on the language-model result, worded from the data."""
     f = agent_facts(d)
     text = (f"{lead} agents from four families, told only to get a bit across, found this channel in "
@@ -468,7 +468,7 @@ def agent_headline(d: Data, lead: str = "In a pre-registered test, language-mode
 
 
 def abstract_text(d: Data) -> str:
-    headline = agent_headline(d, lead="In the experiments conducted, language-model").replace("--", "-")
+    headline = agent_headline(d, lead="In the experiments conducted, AI").replace("--", "-")
     require(d.core["status"] == "checked", "the gateway's replies come from the proved Lean code")
     return (
         "AI agents increasingly share tools through a gateway that authenticates and logs every call, and that log is "
@@ -479,7 +479,7 @@ def abstract_text(d: Data) -> str:
         "lock closes the channel at every horizon, for any number of agents, without costing the receiver's work, and "
         "the gateway's replies come from the proved code. Some design features can reopen the channel even with "
         "private locks, such as a shared rate limit, a global counter in replies or a scheduler that gives away idle "
-        "turns. A sender whose log matches benign work evades a log monitor."
+        "turns."
     )
 
 

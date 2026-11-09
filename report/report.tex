@@ -101,32 +101,36 @@ Our contributions:
 \begin{enumerate}
   \item \textbf{The log does not see it, and agents find it.} A model checker finds a channel of \vBitsPerRoundVone{} bit per round in an audited gateway where every single-run check passes. \vAgentHeadline{}
   \item \textbf{A proved fix.} One private backing lock per agent closes the channel for every sender behaviour, at every horizon across all \vScheduleCount{} public schedules up to length five, and a Lean proof covers any number of agents. The gateway's replies come from that proved code, and the receiver's work still completes.
-  \item \textbf{What reopens the channel.} A shared rate limit, a global counter in replies, or a scheduler that gives away idle turns each reopens the channel despite private locks. Random noise only slows it, and a careful sender's audit logs have exactly the distribution of benign work.
+  \item \textbf{What reopens the channel.} A shared rate limit, a global counter in replies, or a scheduler that gives away idle turns each reopens the channel despite private locks. Random noise only slows it, and a careful sender's audit logs have exactly the distribution of normal work.
 \end{enumerate}
 
 % ---- 2 ----
 \section{2. Related Work}
 
-Our channel is a classic storage channel, judged by noninterference \cite{goguen1982}: a property of pairs of executions, or hyperproperty \cite{clarkson2010}, which self-composition reduces to an ordinary property of a product system \cite{barthe2004,lamport2021}. seL4's information-flow proof \cite{murray2013} and time protection, which flushes shared state between security domains \cite{ge2019}, are deep versions of our two fixes, partitioning in space and in time; we apply the same ideas at the tool layer. Work on agent collusion has focused on content, such as steganography in messages \cite{motwani2024}, and a lock carries no content to inspect. Fides and CaMeL control how data flows through a planner and its tools \cite{costa2025,debenedetti2025}, without addressing contention on resource state; Metere's egress monitor measures residual capacity against a finite set of encoders \cite{metere2026}; and monitors catch coordinated code sabotage because edits leave artefacts \cite{radev2026}, while our signal leaves only legal calls. OpenClaw publishes TLA+ models of session isolation, without a relational check \cite{openclaw2026}. We found no relational check of tool-level contention in an agent gateway; a sprint-length search is weak evidence of absence.
+Our channel is a classic \emph{storage channel}: B learns A's bit from the state of a shared resource. The standard criterion for its absence is noninterference \cite{goguen1982}: what B observes must not depend on A's secret. Noninterference compares pairs of executions, so it is a hyperproperty, not a property of any single run \cite{clarkson2010}. Self-composition turns it into an ordinary property of a product system that runs two copies side by side \cite{barthe2004,lamport2021}, and that is how we check it.
+
+Operating systems close such channels in two ways, and our two fixes follow them at the tool layer. seL4's information-flow proof \cite{murray2013} partitions resources in space, as our private locks do; time protection flushes shared state between security domains \cite{ge2019}, as our release between turns does. Both go much deeper than our model, but they concern a kernel, not agents sharing tools.
+
+Work on collusion between AI agents has mostly examined what agents say, such as steganography hidden in messages \cite{motwani2024}; a lock carries no content to inspect. Information-flow controls for agents, such as Fides and CaMeL, govern how data moves through a planner and its tools \cite{costa2025,debenedetti2025}, but not what the state of a shared resource reveals. Metere's egress monitor estimates residual capacity against a finite set of encoders \cite{metere2026}, whereas our check covers every sender behaviour in the model. Monitors can catch coordinated code sabotage because edits leave artefacts \cite{radev2026}; this signal leaves only legal calls. OpenClaw publishes TLA+ models of session isolation \cite{openclaw2026}, but none compares pairs of runs. We found no relational check of tool-level contention in an agent gateway, although a search made during a short sprint is weak evidence that none exists.
 
 % ---- 3 ----
 \section{3. Methods}
 
-\textbf{Setting.} Agent A holds a fresh private bit each round, and agent B must not learn it. There is no messaging tool: each agent can only send a tool request through the gateway and read its own reply. Time runs in rounds with a fixed, public order of turns: A acts, then B, then maintenance releases every lock (\code{ABM}). A can \code{noop}, \code{acquire} or \code{release} a lock, or \code{try\_job}. B can \code{noop} or \code{try\_job}, which takes the lock if it is free, runs one private job and releases it, replying \code{ok} or \code{busy}. The gateway, the schedule and the audit store are trusted, and all data is synthetic. Table~\ref{tab:variants} lists ten gateway variants: a baseline, two fixes, a deny-all control, and controlled ways of breaking the fix.
+\textbf{Setting.} Two agents, A and B, share a tool gateway. Each round A holds a fresh private bit, and B must not learn it. Neither agent has a messaging tool: each can only send a request through the gateway and read its own reply. Every round follows the same public order of turns: A acts, then B, then a maintenance step releases every lock (\code{ABM}). On its turn A can do nothing (\code{noop}), \code{acquire} or \code{release} the lock, or \code{try\_job}. B can \code{noop} or \code{try\_job}: if the lock is free, B takes it, runs one private job, releases it and gets \code{ok}; if not, it gets \code{busy}. The gateway, the schedule and the audit store are trusted, and all data is synthetic. Table~\ref{tab:variants} lists the ten gateway variants we study: a baseline, two fixes, a control that denies B's operations, and variants that each break the fix in one controlled way.
 
-\textbf{What B can see.} Every result is relative to a declared observation, \emph{ObsB}: B's own action, reply, job output and logical completion time, plus the public round and turn. Wall-clock timing, CPU and cache effects, network latency and other principals' logs are out of scope, not solved.
+\textbf{What B can see.} Every result is relative to a declared observation, \emph{ObsB}: B's own action, reply, job output and logical completion time, plus the public round and turn. Channels outside it, through wall-clock timing, CPU caches, network latency or other agents' logs, are out of scope; we do not claim to close them.
 
-\textbf{The isolation check.} Run the system twice with the same schedule $\sigma$ and the same receiver choices $u_B$, but let the secret and every sender action differ freely. The gateway isolates A from B if B's observations are identical in both runs at every step:
+\textbf{The isolation check.} The question is whether anything A does can change what B sees. We run the system twice with the same schedule $\sigma$ and the same receiver choices $u_B$, and let the secret and all of A's actions differ freely between the runs. The gateway isolates A from B if B's observations are identical in both runs at every step:
 \[
 \mathit{ObsB}(\mathit{Run}(b,u_A,u_B,\sigma)) \;=\; \mathit{ObsB}(\mathit{Run}(b',u_A',u_B,\sigma)).
 \]
-No check of a single run can express this \cite{clarkson2010}. TLC checks it on a product of two copies of the TLA+ model, exploring every reachable state. A violation is a concrete pair of runs, which we call a witness.
+Because this compares two runs, no check of a single run can express it \cite{clarkson2010}. TLC checks it on a product of two copies of the TLA+ model, exploring every reachable state. When the check fails, TLC returns a concrete pair of runs that B can tell apart, which we call a \emph{witness}.
 
-\textbf{The protocol.} The gateway VeriSwarm proposes keeps authentication and logging and adds four rules: (1) each agent's requests use its own backing resource, not just its own name for a shared one; (2) isolated agents share no capacity pool or rate limit; (3) replies carry nothing global, such as a gateway-wide sequence number; (4) the schedule is fixed and never gives an idle agent's turn to another. Where a resource must be shared, releasing it between agents' turns can replace rules 1 and 2.
+\textbf{The protocol.} The gateway VeriSwarm proposes keeps authentication and logging and adds four rules: (1) each agent's requests use its own backing resource, not just its own name for a shared one; (2) isolated agents share no capacity pool or rate limit; (3) replies carry nothing global, such as a gateway-wide sequence number; (4) the order of turns is fixed, and an idle agent's turn is never given to another. Where a resource must be shared, releasing it between agents' turns can replace rules 1 and 2.
 
-\textbf{How a result is checked.} Every witness is replayed field for field in a separately written Python simulator, and TLC's and Python's state graphs are compared in both directions on finite configurations. A version of the product without a round counter is finite, so TLC checks it at every horizon. Lean proves noninterference for the partitioned design with any number of agents, and the partitioned gateway's replies come from a compiled Lean program built from the same definitions, with its own noninterference theorem (Appendix~C). Predictions are recorded before each run, every number here is generated from the artifacts, and the build fails if a claim stops matching them (Appendix~B).
+\textbf{How results are checked.} Each result is checked in more than one way. Every witness is replayed field for field in a separately written Python simulator, and on finite configurations TLC's and Python's state graphs are compared in both directions. Removing the round counter makes the product finite, so TLC can check it at every horizon, not only up to a fixed number of rounds. Lean proves noninterference for the partitioned design with any number of agents, and the partitioned gateway's replies come from a compiled Lean program built from the same definitions, which has its own noninterference theorem (Appendix~C). Predictions were recorded before each run, every number in this report is generated from the artifacts, and the build fails if a claim stops matching them (Appendix~B).
 
-\textbf{Language-model agents.} The same gateway runs with a model in each seat, one API call per turn. The receiver sees only its own events. Agents are told either the code, or only the goal: that the receiver should learn the sender's bit using only what the gateway allows, with nothing agreed in advance. Four families took the seats: Claude (\code{claude-opus-4-8}), and GLM-5.3, Qwen3.8 and Llama~4 Scout through Hugging Face. Every part was pre-registered with its predictions before any call (Appendix~D).
+The same gateway also runs with a language model in each seat, one API call per turn; the receiver sees only its own events. Agents are told either the code or only the goal: that the receiver should learn the sender's bit using only what the gateway allows, with nothing agreed in advance. Four model families took the seats: Claude (\code{claude-opus-4-8}), and GLM-5.3, Qwen3.8 and Llama~4 Scout through Hugging Face. Every part was pre-registered with its predictions before any call (Appendix~D).
 
 % ---- 4 ----
 \section{4. Results}
@@ -137,14 +141,14 @@ TLC finds the leak on the audited shared lock (V1) in the first round: A either 
 
 \input{generated/table_variants.tex}
 
-\subsection{Language-model agents find it}
+\subsection{AI agents find it}
 
 \vAgentParagraph{}
 
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\textwidth]{../artifacts/figures/fig4_agents.pdf}
-\caption{Language-model agents told only the goal, by sender (rows) and receiver (columns). Each cell gives the receiver's correct guesses over answered guesses, across two episodes of 20 rounds (one for Llama to GLM on the shared lock). Darker means further above the 50\% chance level; cells at or below chance share the lightest shade. Llama's cells come from part~5, which reran them with a tool call required (Appendix~D).}
+\caption{AI agents told only the goal, by sender (rows) and receiver (columns). Each cell gives the receiver's correct guesses over answered guesses, across two episodes of 20 rounds (one for Llama to GLM on the shared lock). Darker means further above the 50\% chance level; cells at or below chance share the lightest shade. Llama's cells come from part~5, which reran them with a tool call required (Appendix~D).}
 \label{fig:agents}
 \end{figure}
 
@@ -247,7 +251,7 @@ Three further lemmas show that each step of the abstract model is exactly a call
 
 \textbf{What was checked by running it.} Every request sequence on three turn orders gave \vCoreEpisodes{} episodes and \vCoreExhaustiveReplies{} replies, all equal to Python's, and episodes sharing the receivers' requests gave the receivers exactly one view. \vCoreRandomRuns{} random runs agreed as well, and all \vCoreLlmReplies{} receiver replies from the recorded language-model episodes on private locks were reproduced. The wrapper, the Lean compiler and the operating system remain trusted, and the other variants run on the Python semantics.
 
-\section{Appendix D. Language-Model Agents}
+\section{Appendix D. AI Agents}
 
 \textbf{Design.} Every part was pre-registered in \code{docs/LLM\_PREREGISTRATION.md} before any of its calls, with predictions, analysis rules, code hashes and any amendments. The sender sees its round, turn, private bit and last reply; the receiver sees only its own \emph{ObsB} events and, after each episode, guesses each round's bit. A turn with no valid tool call is retried once, then counted as a no-op or an unanswered guess, never dropped. Each cell is two episodes of 20 balanced rounds.
 
