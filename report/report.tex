@@ -84,7 +84,7 @@ Organisations increasingly run several AI agents side by side, sharing tools thr
 
 A log records who did what. It does not record what one agent could learn from another. If agent A holds a lock and agent B's next request comes back \code{busy}, a bit has moved from A to B, and every call along the way was authenticated, legal and logged. Lampson described this kind of leak, now called a \emph{covert channel}, in 1973: a program cut off from sending messages can still signal through how it uses shared resources \cite{lampson1973}. Agents now share tools in the same way, and collusion between agents is counted among the main risks of multi-agent AI \cite{hammond2025}.
 
-Formal verification suits this question. A model checker explores every behaviour of a precise model, and a proof assistant checks an argument step by step; such tools have found subtle design bugs at Amazon Web Services \cite{newcombe2015} and underpin seL4's machine-checked proof that information stays where it belongs \cite{murray2013}. Their strength for safety is that an adversarial agent may choose any strategy, and an exhaustive check or a proof covers every strategy, including ones nobody anticipated \cite{dalrymple2024,tegmark2023}.
+Formal verification suits this question naturally, a model checker explores every behaviour of a precise model and a proof assistant checks an argument step by step. Such tools have found subtle design bugs at Amazon Web Services \cite{newcombe2015} and underpin seL4's machine-checked proof that information stays where it belongs \cite{murray2013}. Their strength for safety is that an adversarial agent may choose any strategy, and an exhaustive check or a proof covers every strategy, including ones nobody anticipated \cite{dalrymple2024,tegmark2023}.
 
 \textbf{VeriSwarm} applies them to an agent tool gateway (Figure~\ref{fig:overview}). It has three parts: a precise model of the gateway; an isolation check that compares pairs of runs and asks whether anything A does can change what B sees; and a gateway design that passes it, in which each agent's requests use its own backing resource, or shared state is released between agents' turns. The design's reply logic is proved in Lean and runs, compiled, inside the gateway.
 
@@ -101,7 +101,7 @@ Our contributions:
 \begin{enumerate}
   \item \textbf{The log does not see it, and agents find it.} A model checker finds a channel of \vBitsPerRoundVone{} bit per round in an audited gateway where every single-run check passes. \vAgentHeadline{}
   \item \textbf{A proved fix.} One private backing lock per agent closes the channel for every sender behaviour, at every horizon across all \vScheduleCount{} public schedules up to length five, and a Lean proof covers any number of agents. The gateway's replies come from that proved code, and the receiver's work still completes.
-  \item \textbf{What breaks the fix, and why monitoring is not enough.} A shared rate limit, a global counter in replies, or a scheduler that gives away idle turns each reopens the channel despite private locks. Random noise only slows it, and a careful sender's audit logs have exactly the distribution of benign work.
+  \item \textbf{What reopens the channel.} A shared rate limit, a global counter in replies, or a scheduler that gives away idle turns each reopens the channel despite private locks. Random noise only slows it, and a careful sender's audit logs have exactly the distribution of benign work.
 \end{enumerate}
 
 % ---- 2 ----

@@ -6,7 +6,7 @@ Requirements re-read from the live event page on 7 November 2026. **Recheck the 
 
 - [x] **Author name and affiliation.** Alisson Matheus Silva; Instituto de Ciências Matemáticas e de Computação (ICMC), Universidade de São Paulo, in `report/metadata.tex`.
 - [ ] **Author contributions.** Same file; it now says "Alisson Matheus Silva is the sole author." Change it if anyone else contributed.
-- [ ] **Repository link.** Same file; still a placeholder in the Code and Data section. Decide whether to release the code publicly first, and consider the dual-use note on the mimicry result.
+- [x] **Repository link.** Set on 2026-11-09 to https://github.com/itsalissonsilva/VeriSwarm (Code and Data section). Check the repository's visibility on GitHub matches what you intend, given the dual-use note on the mimicry result.
 - [ ] **Read every claim.** The event holds the team responsible for everything in the report, and made-up results or references can disqualify a project.
 - [ ] **Rewrite the prose in your own voice where you can.** The template strongly encourages the final version to be primarily written by the team. The current draft was written by Claude Code. Numbers come from `\input{generated/...}` macros, so keep those when you edit.
 - [ ] **Confirm the LLM Usage Statement** matches what you actually did, including your own review. It now also says Claude models were the subjects of Appendix E.
