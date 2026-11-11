@@ -23,7 +23,10 @@ from matplotlib.patches import FancyBboxPatch  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from veriswarm.agents import CodebookSender, TryJobReceiver  # noqa: E402
 from veriswarm.config import VARIANTS  # noqa: E402
+from veriswarm.monitor import LegalActionMonitor, audit_is_gapless  # noqa: E402
+from veriswarm.runner import run_episode  # noqa: E402
 from veriswarm.semantics import initial_state, last_response, step  # noqa: E402
 from veriswarm.config import default_config  # noqa: E402
 
@@ -135,6 +138,72 @@ def figure_timeline() -> None:
             _cell(ax, 3.05, y, 0.94, 1.0, "release", "#f7f7f5", ink=MUTED)
     fig.subplots_adjust(wspace=0.05, left=0.0, right=1.0, top=0.86, bottom=0.0)
     save(fig, "fig1_paired_timeline")
+
+
+MESSAGE = "HELLO MODEL B"
+
+
+def _send_message(variant: str, bits: list[int]):
+    """Runs the scripted sender and receiver on one design; returns B's replies and the audit."""
+    cfg = default_config(variant, max_rounds=len(bits), track_audit=True)
+    ep = run_episode(cfg, {"A": CodebookSender()}, {"B": TryJobReceiver()}, bits, 2026, f"message_{variant}")
+    replies = [e.resp for e in ep.receiver_events["B"]]
+    flags = len(LegalActionMonitor(cfg.schedule).review(ep.audit).flags)
+    return replies, len(ep.audit), audit_is_gapless(ep.audit), flags
+
+
+def figure_message() -> None:
+    """README figure: the overview diagram, carrying a text message sent bit by bit (V1 and V2)."""
+    bits = [int(b) for byte in MESSAGE.encode("ascii") for b in f"{byte:08b}"]
+    received = {}
+    for variant in ("V1", "V2"):
+        replies, _, gapless, flags = _send_message(variant, bits)
+        if not gapless or flags:
+            raise SystemExit(f"figure_message: {variant} audit has gaps or monitor flags")
+        read = "".join("1" if r == "busy" else "0" for r in replies)
+        received[variant] = [read[i:i + 8] for i in range(0, len(read), 8)]
+    sent = [f"{byte:08b}" for byte in MESSAGE.encode("ascii")]
+    decoded = bytes(int(b, 2) for b in received["V1"]).decode("ascii", errors="replace")
+
+    c = LIGHT
+    width, height = 3.1, 2.3
+    fig, axes = plt.subplots(1, 2, figsize=(6.5, height))
+    for ax in axes:
+        ax.set_xlim(0, width)
+        ax.set_ylim(0, height)
+        ax.set_aspect("equal")
+        ax.axis("off")
+    mono = {"family": "DejaVu Sans Mono", "fontsize": 6.4}
+    titles = ("Today: one shared lock", "VeriSwarm: one lock each")
+    for ax, title in zip(axes, titles):
+        ax.text(0.0, 2.27, title, fontsize=8.6, weight="bold", color=c["ink"], va="top")
+        ax.text(0.0, 1.98, "sends " + " ".join(sent[:2]) + " …", color=c["ink2"], va="top", **mono)
+        _box(ax, 0.0, 1.2, 0.98, 0.5, "", face=c["box"])
+        ax.text(0.49, 1.56, "Agent A", ha="center", va="center", fontsize=6.9, color=c["ink"])
+        ax.text(0.49, 1.36, MESSAGE, ha="center", va="center", fontsize=7.0, weight="bold", color=c["ink"])
+        _box(ax, 0.0, 0.3, 0.98, 0.5, "Agent B", face=c["box"], ink=c["ink"], size=6.9)
+        _box(ax, 1.3, 0.22, 0.78, 1.58, "Gateway\n\nlog: all calls\nlegal",
+             face=c["panel"], edge=c["edge"], ink=c["ink"], size=6.7)
+        _arrow(ax, (0.98, 1.45), (1.3, 1.45), color=c["arrow"], lw=1.0)
+        _arrow(ax, (0.98, 0.62), (1.3, 0.62), color=c["arrow"], lw=1.0)
+    # Left: one shared lock; B reads the message.
+    ax = axes[0]
+    _arrow(ax, (1.3, 0.42), (0.98, 0.42), color=c["leak"], lw=1.4)
+    ax.text(0.0, 0.14, f"reads {decoded}", fontsize=7.0, weight="bold", color=c["leak"], va="center")
+    _box(ax, 2.34, 0.78, 0.76, 0.5, "one shared\nlock", face=c["leak_wash"], ink=c["ink"], size=7.0, weight="bold")
+    _arrow(ax, (2.08, 1.45), (2.34, 1.18), color=c["arrow"], both=True, lw=1.0)
+    _arrow(ax, (2.08, 0.62), (2.34, 0.88), color=c["arrow"], both=True, lw=1.0)
+    # Right: private locks; B reads nothing but zeros.
+    ax = axes[1]
+    _arrow(ax, (1.3, 0.42), (0.98, 0.42), color=c["safe"], lw=1.4)
+    ax.text(0.0, 0.14, "reads " + " ".join(received["V2"][:2]) + " …", color=c["safe"], va="center",
+            **{**mono, "fontsize": 6.6})
+    _box(ax, 2.34, 1.2, 0.76, 0.5, "A's lock", face=c["safe_wash"], ink=c["ink"], size=7.0, weight="bold")
+    _box(ax, 2.34, 0.3, 0.76, 0.5, "B's lock", face=c["safe_wash"], ink=c["ink"], size=7.0, weight="bold")
+    _arrow(ax, (2.08, 1.45), (2.34, 1.45), color=c["arrow"], both=True, lw=1.0)
+    _arrow(ax, (2.08, 0.55), (2.34, 0.55), color=c["arrow"], both=True, lw=1.0)
+    fig.subplots_adjust(wspace=0.1, left=0.01, right=0.99, top=0.99, bottom=0.01)
+    save(fig, "fig_message")
 
 
 def _variant_order() -> list[str]:
@@ -576,6 +645,7 @@ def main() -> int:
     figure_project_image()
     figure_pipeline()
     figure_timeline()
+    figure_message()
     figure_measured()
     figure_noise()
     figure_agent_grid()
