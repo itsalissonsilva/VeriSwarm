@@ -4,7 +4,7 @@
 
 > Can a receiver recover a sender's private bit through resource contention despite authenticated, audited tool calls, and what structural change removes this channel under an explicit observation model?
 
-**Short answer.** Yes, at exactly one bit per round, with a complete and legal audit trail and every single-execution check passing. Giving each principal its own backing lock closes this channel in an exhaustively checked finite model, while the receiver's work still completes. In pre-registered tests with four model families, agents told only to get a bit across, with no code, found the channel in every pairing of Claude, GLM and Qwen, mixed pairs included. Llama 4 Scout did not decode it, even with the code supplied.
+Yes, the receiver learns one bit per round from whether the lock is busy, while every call is legal and logged and every check on a single run passes. Giving each agent its own lock closes the channel in an exhaustively checked finite model, and the receiver's jobs still complete. In pre-registered tests, AI agents told only to get a bit across, without being told how, found the channel in every pairing of Claude, GLM and Qwen, mixed pairs included. Llama 4 Scout could not decode it, even when given the code.
 
 ![Agents told only the goal, by sender (rows) and receiver (columns): the receiver's correct guesses out of answered guesses, on one shared lock and on private locks.](artifacts/figures/fig4_agents.png)
 
@@ -23,11 +23,6 @@ In the VeriSwarm design, the gateway gives each agent its own backing lock, so B
 From [lean/VeriSwarm/Partition.lean](lean/VeriSwarm/Partition.lean):
 
 ```lean
-/--
-**Noninterference for the partitioned gateway.** For any principals, any round, any
-number of rounds, any adaptive receiver and any encoder, the receiver's complete
-history is the same for all values of the secret.
--/
 theorem noninterference {Secret : Type} (r : P) (recv : List Event → Action)
     (encode : Secret → Nat → P → Action) (b b' : Secret)
     (round : List (Slot P)) (k : Nat) :
