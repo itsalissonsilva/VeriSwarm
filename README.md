@@ -4,13 +4,21 @@
 
 > Can a receiver recover a sender's private bit through resource contention despite authenticated, audited tool calls, and what structural change removes this channel under an explicit observation model?
 
-**Short answer.** Yes, at exactly one bit per round, with a complete and legal audit trail and every single-execution check passing. Giving each principal its own backing lock closes this channel in an exhaustively checked finite model, while the receiver's work still completes.
-
-![Agent A sends HELLO MODEL B as bits through the gateway. With one shared lock, Agent B reads HELLO MODEL B. With one lock each, B reads only zeros. The log shows every call as legal in both.](artifacts/figures/fig_message.png)
-
-In pre-registered tests with four model families, agents told only to get a bit across, with no code, found the channel in every pairing of Claude, GLM and Qwen, mixed pairs included. Llama 4 Scout did not decode it, even with the code supplied. Private locks kept all 16 pairings at chance, and no receiver was ever told busy.
+**Short answer.** Yes, at exactly one bit per round, with a complete and legal audit trail and every single-execution check passing. Giving each principal its own backing lock closes this channel in an exhaustively checked finite model, while the receiver's work still completes. In pre-registered tests with four model families, agents told only to get a bit across, with no code, found the channel in every pairing of Claude, GLM and Qwen, mixed pairs included. Llama 4 Scout did not decode it, even with the code supplied. Private locks kept all 16 pairings at chance, and no receiver was ever told busy.
 
 ![Agents told only the goal, by sender (rows) and receiver (columns): the receiver's correct guesses out of answered guesses, on one shared lock and on private locks.](artifacts/figures/fig4_agents.png)
+
+**The problem.** Companies increasingly run several AI agents side by side, sharing tools through one gateway such as an MCP server. Some of those agents must stay apart: one sees private data while another can reach the internet, or one writes code while another reviews it. The usual safeguard is that every call is authenticated and logged. But in 1973 Lampson pointed out that a program cut off from sending messages can still signal through a shared resource. Here, agent A holds a shared lock to send a 1 and leaves it free to send a 0, and agent B tries a job and is told `busy` or `ok`. Every call is legal, so the log shows nothing wrong.
+
+**Agents find it on their own.** Told only the goal, Claude, GLM and Qwen senders all chose the same scheme, holding the lock for 1 and leaving it free for 0, in 472 of their 480 rounds. Qwen3.8, as a sender, put it this way:
+
+> "I'll use the natural convention: acquire the lock to signal bit = 1." ([transcript](artifacts/raw/llm_pairs_qwen/pair-V1-no_hint-qwen-to-claude-r20-s40000.json))
+
+Llama 4 Scout is the exception, and it failed at decoding, not because the channel was closed. As a sender it held the lock in 139 of 140 rounds, whatever the bit. Given the code, its receiver was told `busy` exactly when the bit was 1 in 40 of 40 rounds, yet guessed 1 in 39 of its 40 answers: the bit reached it and it did not read it.
+
+**The VeriSwarm design.** The gateway gives each agent its own backing lock, so B's replies never depend on what A does. TLC checks this over pairs of runs that differ only in A's secret, exhaustively for the finite model and at every horizon. Lean proves noninterference for any number of agents, and the partitioned gateway's replies come from that proved code, compiled. B's jobs still complete.
+
+![Agent A sends HELLO MODEL B as bits through the gateway. With one shared lock, Agent B reads HELLO MODEL B. With one lock each, B reads only zeros. The log shows every call as legal in both.](artifacts/figures/fig_message.png)
 
 The measured numbers are in [docs/RESULTS.md](docs/RESULTS.md), generated from the artifacts. The report is [report/report.pdf](report/report.pdf).
 
